@@ -17,6 +17,8 @@ create table if not exists public.pipeline_history (
   description text not null,
   evidence_url text,
   is_skipped boolean not null default false,
+  status_snapshot boolean,
+  confirmed_offline boolean,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique(stage_slug, entry_date)

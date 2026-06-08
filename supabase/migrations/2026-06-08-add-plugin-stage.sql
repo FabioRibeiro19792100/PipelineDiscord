@@ -4,6 +4,12 @@ add column if not exists creators integer;
 alter table public.pipeline_assets
 add column if not exists plugin_accesses integer;
 
+alter table public.pipeline_history
+add column if not exists status_snapshot boolean;
+
+alter table public.pipeline_history
+add column if not exists confirmed_offline boolean;
+
 update public.pipeline_assets
 set creators = participants
 where creators is null

@@ -87,6 +87,8 @@ const els = {
   updateModalTitle: document.getElementById('updateModalTitle'),
   updateDate: document.getElementById('updateDate'),
   skipCheck: document.getElementById('skipCheck'),
+  offConfirmWrap: document.getElementById('offConfirmWrap'),
+  offConfirmCheck: document.getElementById('offConfirmCheck'),
   updateFields: document.getElementById('updateFields'),
   updateText: document.getElementById('updateText'),
   updateLink: document.getElementById('updateLink'),
@@ -281,8 +283,13 @@ function renderHistory() {
           <div class="col">
             <div class="history-cell ${editable ? 'is-editable' : 'is-locked'}" data-history-stage="${stage.slug}" data-history-date="${dateKey}" data-history-editable="${editable ? 'true' : 'false'}">
               <div class="history-meta-row">
-                <div class="log-time">${formatHistoryTime(current)}</div>
-                ${editable ? `<button class="history-edit-btn" type="button" aria-label="Editar histórico">${editIcon()}</button>` : ''}
+                <div class="history-meta-left">
+                  <div class="log-time">${formatHistoryTime(current)}</div>
+                </div>
+                <div class="history-meta-actions">
+                  ${editable ? `<button class="history-edit-btn" type="button" aria-label="Editar histórico">${editIcon()}</button>` : ''}
+                  ${current.isPlaceholder ? '' : renderHistoryStatusTag(current, stage)}
+                </div>
               </div>
               <p class="log-text ${current.isPlaceholder ? 'placeholder' : ''}">${renderHistoryText(current)}</p>
               ${events.length ? `<span class="status-event">${events[0].is_active ? 'Status voltou para operacional.' : 'Status marcado como interrompido.'}</span>` : ''}
@@ -410,9 +417,13 @@ function openUpdateModal(stageSlug, dateKey) {
   els.updateDate.value = dateKey;
   els.updateDate.readOnly = true;
   els.skipCheck.checked = Boolean(entry?.is_skipped);
+  if (els.offConfirmCheck) {
+    els.offConfirmCheck.checked = Boolean(entry ? !isEntryTaggedOff(entry, stage) || entry.confirmed_offline !== false : stage?.isActive);
+  }
   els.updateText.value = entry?.description || '';
   els.updateLink.value = entry?.evidence_url || '';
   syncUpdateSkipUi();
+  syncOffConfirmUi(stage);
   els.updateBackdrop.classList.add('open');
   (entry?.is_skipped ? els.updateDate : els.updateText).focus();
 }
@@ -427,10 +438,18 @@ function syncUpdateSkipUi() {
   els.updateFields.style.pointerEvents = locked ? 'none' : 'auto';
 }
 
+function syncOffConfirmUi(stage = getDraftStage()) {
+  const show = Boolean(stage && !stage.isActive);
+  if (!els.offConfirmWrap || !els.offConfirmCheck) return;
+  els.offConfirmWrap.hidden = !show;
+  if (!show) els.offConfirmCheck.checked = false;
+}
+
 async function saveHistoryFromModal() {
   const stageSlug = state.updateDraft.stageSlug;
   const originalDate = state.updateDraft.originalDate;
   const entryDate = originalDate;
+  const stage = state.stages.find((item) => item.slug === stageSlug);
 
   if (entryDate > todayKey) {
     closeUpdateModal();
@@ -451,6 +470,11 @@ async function saveHistoryFromModal() {
     return;
   }
 
+  if (stage && !stage.isActive && els.offConfirmCheck && !els.offConfirmCheck.checked) {
+    els.offConfirmCheck.focus();
+    return;
+  }
+
   const existingIndex = state.history.findIndex((item) => item.stage_slug === stageSlug && item.entry_date === originalDate);
   const base = {
     id: existingIndex >= 0 ? state.history[existingIndex].id : crypto.randomUUID(),
@@ -459,6 +483,8 @@ async function saveHistoryFromModal() {
     description,
     evidence_url: evidenceUrl,
     is_skipped: skip,
+    status_snapshot: stage?.isActive ?? false,
+    confirmed_offline: stage?.isActive ? null : true,
     created_at: existingIndex >= 0 ? state.history[existingIndex].created_at : new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
@@ -758,6 +784,13 @@ function renderHistoryText(entry) {
   return `${text} <a href="${escapeAttr(entry.evidence_url)}" target="_blank" rel="noreferrer">evidência</a>`;
 }
 
+function renderHistoryStatusTag(entry, stage) {
+  const isOn = entry.status_snapshot ?? stage?.isActive ?? false;
+  return `
+    <span class="history-status-dot ${isOn ? 'is-on' : 'is-off'}" aria-label="${isOn ? 'Ligado' : 'Desligado'}" title="${isOn ? 'Ligado' : 'Desligado'}"></span>
+  `;
+}
+
 function formatHistoryTime(entry) {
   if (entry.isPlaceholder) {
     return `${formatDateLabel(entry.entry_date)} · ${entry.entry_date < todayKey ? 'não preenchido' : 'hoje'}`;
@@ -853,7 +886,7 @@ function sortAssets() {
   state.assets.sort((a, b) => (b.published_on || '').localeCompare(a.published_on || ''));
 }
 
-function historyEntry(stageSlug, entryDate, description, evidenceUrl, isSkipped, createdAt) {
+function historyEntry(stageSlug, entryDate, description, evidenceUrl, isSkipped, createdAt, statusSnapshot = null, confirmedOffline = null) {
   return {
     id: crypto.randomUUID(),
     stage_slug: stageSlug,
@@ -861,6 +894,8 @@ function historyEntry(stageSlug, entryDate, description, evidenceUrl, isSkipped,
     description,
     evidence_url: evidenceUrl,
     is_skipped: isSkipped,
+    status_snapshot: statusSnapshot,
+    confirmed_offline: confirmedOffline,
     created_at: createdAt,
     updated_at: createdAt
   };
@@ -902,6 +937,8 @@ function normalizeHistory(entry) {
     description: entry.description || '',
     evidence_url: entry.evidence_url || '',
     is_skipped: Boolean(entry.is_skipped),
+    status_snapshot: entry.status_snapshot ?? null,
+    confirmed_offline: entry.confirmed_offline ?? null,
     created_at: entry.created_at || null,
     updated_at: entry.updated_at || null
   };
@@ -951,9 +988,19 @@ function toDbHistory(entry) {
     description: entry.description || '',
     evidence_url: entry.evidence_url || '',
     is_skipped: Boolean(entry.is_skipped),
+    status_snapshot: entry.status_snapshot ?? null,
+    confirmed_offline: entry.confirmed_offline ?? null,
     created_at: entry.created_at,
     updated_at: entry.updated_at
   };
+}
+
+function getDraftStage() {
+  return state.stages.find((item) => item.slug === state.updateDraft.stageSlug) || null;
+}
+
+function isEntryTaggedOff(entry, stage) {
+  return Boolean((entry.status_snapshot ?? stage?.isActive ?? false) === false);
 }
 
 function toDbAsset(asset) {
@@ -1000,36 +1047,36 @@ function createDemoData(dateKey) {
   return {
     stages: STAGE_META.map((stage) => ({ ...stage })),
     history: [
-      historyEntry('tiktok-ads', demoDays[0], 'Dois criativos novos publicados e campanha principal mantida ativa.', 'https://example.com/ads', false, `${demoDays[0]}T09:20:00`),
-      historyEntry('landing', demoDays[0], 'Headline revisada e CTA de entrada destacado para mobile.', 'https://example.com/landing', false, `${demoDays[0]}T11:10:00`),
-      historyEntry('discord', demoDays[0], 'Fluxo de recepcao ajustado com mensagem inicial e canal de boas-vindas.', 'https://example.com/discord', false, `${demoDays[0]}T11:40:00`),
-      historyEntry('plugin', demoDays[0], 'Plugin operante e onboarding revisado para aumentar a criacao de creators.', 'https://example.com/plugin', false, `${demoDays[0]}T14:20:00`),
-      historyEntry('programacao', demoDays[0], 'Agenda da semana publicada e evento principal confirmado.', '', false, `${demoDays[0]}T17:45:00`),
-      historyEntry('tiktok-ads', demoDays[1], 'Teste A/B de criativos pausado e melhor variacao mantida.', 'https://example.com/ads-2', false, `${demoDays[1]}T10:05:00`),
-      historyEntry('landing', demoDays[1], 'Bloco social proof atualizado com prints da comunidade.', '', false, `${demoDays[1]}T14:20:00`),
-      historyEntry('discord', demoDays[1], 'Canais de entrada reorganizados para reduzir ruido inicial.', '', false, `${demoDays[1]}T16:10:00`),
-      historyEntry('plugin', demoDays[1], 'Acesso ao plugin estabilizado e evento de instalacao guiada realizado.', '', false, `${demoDays[1]}T17:00:00`),
-      historyEntry('programacao', demoDays[1], 'Calendario semanal revisado com foco em evento de sabado.', '', false, `${demoDays[1]}T18:00:00`),
-      historyEntry('tiktok-ads', demoDays[2], 'Nova copy de anuncio publicada com foco em aula gratuita.', '', false, `${demoDays[2]}T09:15:00`),
-      historyEntry('landing', demoDays[2], 'Ajuste fino no CTA principal para entrada no Discord.', '', false, `${demoDays[2]}T12:30:00`),
-      historyEntry('discord', demoDays[2], 'Mensagem automatica de boas-vindas revisada.', '', false, `${demoDays[2]}T13:00:00`),
-      historyEntry('plugin', demoDays[2], 'Tutorial de instalacao encurtado para reduzir abandono.', '', false, `${demoDays[2]}T15:00:00`),
-      historyEntry('programacao', demoDays[2], 'Tema da semana definido com apoio dos moderadores.', '', false, `${demoDays[2]}T17:20:00`),
-      historyEntry('tiktok-ads', demoDays[3], 'Campanha de retargeting ativada para visitantes recentes.', '', false, `${demoDays[3]}T08:55:00`),
-      historyEntry('landing', demoDays[3], 'Seção de prova social expandida com novos depoimentos.', '', false, `${demoDays[3]}T10:40:00`),
-      historyEntry('discord', demoDays[3], 'Canal de regras simplificado para leitura rapida.', '', false, `${demoDays[3]}T15:10:00`),
-      historyEntry('plugin', demoDays[3], 'Falha pontual no plugin corrigida apos validacao do time.', '', false, `${demoDays[3]}T16:30:00`),
-      historyEntry('programacao', demoDays[3], 'Atividade principal da sexta foi confirmada.', '', false, `${demoDays[3]}T19:00:00`),
-      historyEntry('tiktok-ads', demoDays[4], 'Criativo de topo retomado apos queda de desempenho dos testes.', '', false, `${demoDays[4]}T11:25:00`),
-      historyEntry('landing', demoDays[4], 'Formulario de entrada encurtado para reduzir atrito.', '', false, `${demoDays[4]}T12:50:00`),
-      historyEntry('discord', demoDays[4], 'Mensagem fixada com primeiros passos foi atualizada.', '', false, `${demoDays[4]}T14:45:00`),
-      historyEntry('plugin', demoDays[4], 'Checklist de instalacao publicado para novos membros.', '', false, `${demoDays[4]}T16:00:00`),
-      historyEntry('programacao', demoDays[4], 'Checklist de moderacao alinhado para a semana.', '', false, `${demoDays[4]}T18:30:00`),
-      historyEntry('tiktok-ads', demoDays[5], 'Primeira leva de criativos da semana entrou em circulacao.', '', false, `${demoDays[5]}T09:00:00`),
-      historyEntry('landing', demoDays[5], 'Hero principal revisado com promessa mais clara.', '', false, `${demoDays[5]}T10:30:00`),
-      historyEntry('discord', demoDays[5], 'Boas-vindas segmentadas por perfil foram testadas.', '', false, `${demoDays[5]}T13:20:00`),
-      historyEntry('plugin', demoDays[5], 'Primeira medicao de creators ativados via plugin foi consolidada.', '', false, `${demoDays[5]}T15:40:00`),
-      historyEntry('programacao', demoDays[5], 'Planejamento-base da semana foi publicado.', '', false, `${demoDays[5]}T17:10:00`)
+      historyEntry('tiktok-ads', demoDays[0], 'Dois criativos novos publicados e campanha principal mantida ativa.', 'https://example.com/ads', false, `${demoDays[0]}T09:20:00`, true),
+      historyEntry('landing', demoDays[0], 'Headline revisada e CTA de entrada destacado para mobile.', 'https://example.com/landing', false, `${demoDays[0]}T11:10:00`, true),
+      historyEntry('discord', demoDays[0], 'Fluxo de recepcao ajustado com mensagem inicial e canal de boas-vindas.', 'https://example.com/discord', false, `${demoDays[0]}T11:40:00`, true),
+      historyEntry('plugin', demoDays[0], 'Plugin operante e onboarding revisado para aumentar a criacao de creators.', 'https://example.com/plugin', false, `${demoDays[0]}T14:20:00`, true),
+      historyEntry('programacao', demoDays[0], 'Agenda da semana publicada e evento principal confirmado.', '', false, `${demoDays[0]}T17:45:00`, true),
+      historyEntry('tiktok-ads', demoDays[1], 'Teste A/B de criativos pausado e melhor variacao mantida.', 'https://example.com/ads-2', false, `${demoDays[1]}T10:05:00`, true),
+      historyEntry('landing', demoDays[1], 'Bloco social proof atualizado com prints da comunidade.', '', false, `${demoDays[1]}T14:20:00`, true),
+      historyEntry('discord', demoDays[1], 'Canais de entrada reorganizados para reduzir ruido inicial.', '', false, `${demoDays[1]}T16:10:00`, true),
+      historyEntry('plugin', demoDays[1], 'Acesso ao plugin estabilizado e evento de instalacao guiada realizado.', '', false, `${demoDays[1]}T17:00:00`, true),
+      historyEntry('programacao', demoDays[1], 'Calendario semanal revisado com foco em evento de sabado.', '', false, `${demoDays[1]}T18:00:00`, true),
+      historyEntry('tiktok-ads', demoDays[2], 'Nova copy de anuncio publicada com foco em aula gratuita.', '', false, `${demoDays[2]}T09:15:00`, true),
+      historyEntry('landing', demoDays[2], 'Ajuste fino no CTA principal para entrada no Discord.', '', false, `${demoDays[2]}T12:30:00`, true),
+      historyEntry('discord', demoDays[2], 'Mensagem automatica de boas-vindas revisada.', '', false, `${demoDays[2]}T13:00:00`, true),
+      historyEntry('plugin', demoDays[2], 'Tutorial de instalacao encurtado para reduzir abandono.', '', false, `${demoDays[2]}T15:00:00`, true),
+      historyEntry('programacao', demoDays[2], 'Tema da semana definido com apoio dos moderadores.', '', false, `${demoDays[2]}T17:20:00`, true),
+      historyEntry('tiktok-ads', demoDays[3], 'Campanha de retargeting ativada para visitantes recentes.', '', false, `${demoDays[3]}T08:55:00`, true),
+      historyEntry('landing', demoDays[3], 'Seção de prova social expandida com novos depoimentos.', '', false, `${demoDays[3]}T10:40:00`, true),
+      historyEntry('discord', demoDays[3], 'Canal de regras simplificado para leitura rapida.', '', false, `${demoDays[3]}T15:10:00`, true),
+      historyEntry('plugin', demoDays[3], 'Falha pontual no plugin corrigida apos validacao do time.', '', false, `${demoDays[3]}T16:30:00`, false, true),
+      historyEntry('programacao', demoDays[3], 'Atividade principal da sexta foi confirmada.', '', false, `${demoDays[3]}T19:00:00`, true),
+      historyEntry('tiktok-ads', demoDays[4], 'Criativo de topo retomado apos queda de desempenho dos testes.', '', false, `${demoDays[4]}T11:25:00`, true),
+      historyEntry('landing', demoDays[4], 'Formulario de entrada encurtado para reduzir atrito.', '', false, `${demoDays[4]}T12:50:00`, true),
+      historyEntry('discord', demoDays[4], 'Mensagem fixada com primeiros passos foi atualizada.', '', false, `${demoDays[4]}T14:45:00`, true),
+      historyEntry('plugin', demoDays[4], 'Checklist de instalacao publicado para novos membros.', '', false, `${demoDays[4]}T16:00:00`, false, true),
+      historyEntry('programacao', demoDays[4], 'Checklist de moderacao alinhado para a semana.', '', false, `${demoDays[4]}T18:30:00`, true),
+      historyEntry('tiktok-ads', demoDays[5], 'Primeira leva de criativos da semana entrou em circulacao.', '', false, `${demoDays[5]}T09:00:00`, true),
+      historyEntry('landing', demoDays[5], 'Hero principal revisado com promessa mais clara.', '', false, `${demoDays[5]}T10:30:00`, true),
+      historyEntry('discord', demoDays[5], 'Boas-vindas segmentadas por perfil foram testadas.', '', false, `${demoDays[5]}T13:20:00`, true),
+      historyEntry('plugin', demoDays[5], 'Primeira medicao de creators ativados via plugin foi consolidada.', '', false, `${demoDays[5]}T15:40:00`, true),
+      historyEntry('programacao', demoDays[5], 'Planejamento-base da semana foi publicado.', '', false, `${demoDays[5]}T17:10:00`, true)
     ],
     assets: [
       assetEntry('Aula aberta', 'https://example.com/video-demo-1', dateKey, 18400, 562, 74, 41, 29),
