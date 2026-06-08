@@ -11,18 +11,18 @@ Versão recriada do pipeline, agora dirigida por dados e pronta para persistênc
 
 ## Como ligar o Supabase
 
-1. Crie um projeto no Supabase.
-2. Rode o SQL de [`supabase/schema.sql`](/Users/fabioribeiro/Documents/PipelineRoblox/supabase/schema.sql).
-3. Antes de abrir o `index.html`, defina as credenciais no escopo global:
+1. Rode o SQL de [`supabase/setup.sql`](/Users/fabioribeiro/Documents/PipelineRoblox/supabase/setup.sql).
+2. O frontend já está apontando para:
 
-```html
-<script>
-  window.SUPABASE_URL = 'https://SEU-PROJETO.supabase.co';
-  window.SUPABASE_ANON_KEY = 'SUA_ANON_KEY';
-</script>
+```txt
+SUPABASE_URL=https://fwdhsxteposkwrabedvo.supabase.co
+SUPABASE_ANON_KEY=sb_publishable_Kncr6nML7ncL76PomhCk7A_aRIzeAew
 ```
 
-4. Insira esse bloco logo antes de `<script type="module" src="./app.js"></script>` em [`index.html`](/Users/fabioribeiro/Documents/PipelineRoblox/index.html).
+3. Se quiser trocar de projeto depois, atualize os valores em:
+
+- [`index.html`](/Users/fabioribeiro/Documents/PipelineRoblox/index.html)
+- [`demo/index.html`](/Users/fabioribeiro/Documents/PipelineRoblox/demo/index.html)
 
 ## Regras já implementadas
 
