@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Pipeline da Comunidade Roblox</title>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --ink:#1f1f1d;
+      --muted:#77736a;
+      --line:#ded8cd;
+      --soft:#e8e5de;
+      --green:#2f8f5b;
+      --yellow:#c89b28;
+      --red:#c84c3d;
+      --p:24px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{
+      background:var(--bg);
+      color:var(--ink);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      font-size:13px;
+      line-height:1.4;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      padding:0 48px;
+    }
+
+    /* HEADER */
+    .page-header{
+      flex:0 0 auto;
+      padding:16px var(--p);
+      border-bottom:1px solid var(--line);
+      display:flex;align-items:center;justify-content:space-between;
+    }
+    h1{font-size:15px;font-weight:700;letter-spacing:-.02em}
+
+    /* GRID 4 COLUNAS */
+    .band{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      border-bottom:1px solid var(--line);
+    }
+    .band > .col{
+      padding:12px var(--p);
+      border-right:1px solid rgba(0,0,0,.15);
+    }
+    .band > .col:last-child{border-right:none}
+
+    /* TÍTULOS — sticky no topo do pipeline-scroll */
+    .band-titles{background:var(--soft);border-bottom:1px solid var(--line);}
+    .band-titles > .col{padding-top:10px;padding-bottom:10px}
+    .col-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+    h2{font-size:16px;font-weight:740;letter-spacing:-.025em}
+    .col-meta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
+
+    /* TOGGLE */
+    .toggle{position:relative;width:36px;height:20px;flex:0 0 auto}
+    .toggle input{opacity:0;width:0;height:0}
+    .toggle-track{position:absolute;inset:0;cursor:pointer;background:#cfc5b4;border-radius:999px;transition:.2s}
+    .toggle-track:before{content:"";position:absolute;height:14px;width:14px;left:3px;top:3px;background:white;border-radius:50%;transition:.2s;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+    .toggle input:checked + .toggle-track{background:var(--green)}
+    .toggle input:checked + .toggle-track:before{transform:translateX(16px)}
+
+    /* COLUNA INTERROMPIDA */
+    .band > .col.col-off{background:rgba(200,76,61,.06)}
+    .band.alt > .col.col-off{background:rgba(200,76,61,.10)}
+    .band > .col.col-off .log-time,.band > .col.col-off .col-meta,.band > .col.col-off .row-label{color:rgba(200,76,61,.7)}
+
+    /* BLOCKER */
+    .band-blocker{background:#fff}
+    .band-blocker > .col{padding-top:14px;padding-bottom:14px}
+    .row-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700;margin-bottom:6px}
+    .block-text{font-size:11px;color:#3a3630;line-height:1.5}
+
+
+    /* HISTÓRICO LABEL */
+    .band-hist-label{background:#d4d0c8;border-bottom:1px solid var(--line);}
+    .band-hist-label > .col{padding-top:9px;padding-bottom:9px}
+    .hist-head{display:flex;align-items:center;justify-content:space-between}
+    .btn-plus{width:20px;height:20px;border-radius:50%;border:1px solid var(--muted);background:transparent;color:var(--muted);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:inherit}
+
+    /* HISTÓRICO SCROLL */
+    #history-scroll{height:calc(4 * 72px);overflow-y:auto;overflow-x:hidden}
+    #history-scroll::-webkit-scrollbar{width:3px}
+    #history-scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+    .band-history > .col{padding-top:12px;padding-bottom:12px;border-top:1px solid rgba(222,216,205,.4);height:72px;overflow:hidden}
+    .log-time{font-size:11px;color:var(--muted);margin-bottom:3px}
+    .log-text{font-size:13px;color:#3a3630;line-height:1.35}
+    .log a{color:var(--ink);text-underline-offset:2px}
+
+    /* BARRA NOVO ATIVO */
+    .bar-new-asset{
+      flex:0 0 auto;
+      background:var(--soft);
+      border-top:1px solid var(--line);
+      border-bottom:1px solid var(--line);
+      padding:10px var(--p);
+    }
+    .bar-new-asset button{
+      border:1px solid var(--ink);background:transparent;
+      border-radius:8px;padding:6px 14px;
+      font:inherit;font-size:12px;font-weight:600;color:var(--ink);cursor:pointer;
+    }
+    .bar-new-asset button:hover{background:var(--soft)}
+
+    /* ATIVOS */
+    .a-entry{border-bottom:1px solid var(--line)}
+    .a-name{
+      padding:9px var(--p);
+      display:flex;gap:10px;align-items:baseline;
+      background:#ccc8c0;
+      border-bottom:1px solid var(--line);
+    }
+    .asset-title{font-weight:700;font-size:14px}
+    .asset-note{font-size:12px;color:var(--muted)}
+    .asset-link{font-size:12px;color:var(--ink);text-underline-offset:3px}
+    .a-metrics{display:grid;grid-template-columns:repeat(4,1fr);padding-bottom:12px;background:#fff}
+    .a-cell{padding:8px var(--p) 0;border-right:1px solid var(--line);position:relative;display:block}
+    .a-cell:last-child{border-right:none}
+    .a-cell:not(:last-child):after{content:"";}
+    .a-cell-left{display:grid;grid-template-columns:40% 60%;align-items:baseline;width:100%}
+    .metric-input{font-size:20px;font-weight:760;letter-spacing:-.03em;border:none;background:transparent;color:var(--ink);width:100%;outline:none;font-family:inherit;padding:0;cursor:text;border-bottom:1px solid transparent}
+    .metric-input:focus{border-bottom-color:var(--line)}
+    .metric-info{display:flex;flex-direction:row;align-items:baseline;gap:4px}
+    .metric-label{color:var(--muted);font-size:11px}
+    .metric-pct{font-size:11px;color:var(--muted);font-weight:500}
+
+    /* FOOTER */
+    .page-footer{
+      flex:0 0 auto;
+      border-top:1px solid var(--line);
+      padding:7px var(--p);
+      display:flex;align-items:center;justify-content:space-between;
+      background:var(--ink);
+    }
+    .footer-date{font-size:12px;color:rgba(255,255,255,.4);font-variant-numeric:tabular-nums}
+    .footer-link{font-size:12px;color:rgba(255,255,255,.5);text-decoration:none}
+    .footer-link:hover{color:#fff}
+    .footer-name{font-size:12px;color:rgba(255,255,255,.25)}
+
+    /* MODAIS */
+    .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(20,18,14,.5);z-index:100;align-items:center;justify-content:center}
+    .modal-backdrop.open{display:flex}
+    .modal{background:#fffdf8;border:1px solid var(--line);border-radius:16px;width:100%;max-width:440px;overflow:hidden;display:flex;flex-direction:column}
+    .modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--line)}
+    .modal-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700;margin-bottom:4px}
+    .modal-header h3{font-size:17px;font-weight:740;letter-spacing:-.03em}
+    .modal-body{padding:18px 24px;display:flex;flex-direction:column;gap:14px}
+    .modal-field{display:flex;flex-direction:column;gap:5px}
+    .modal-field-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+    .modal-body input[type="text"],.modal-body input[type="url"],.modal-body input[type="date"],.modal-body textarea{width:100%;border:none;border-bottom:1px solid var(--line);background:transparent;padding:8px 0;font:inherit;font-size:13px;color:var(--ink);outline:none;border-radius:0;box-sizing:border-box}
+    .modal-body textarea{min-height:80px;resize:none;line-height:1.5}
+    .modal-body input:focus,.modal-body textarea:focus{border-bottom-color:var(--ink)}
+    .modal-skip{display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--soft);font-size:13px;color:var(--muted);cursor:pointer}
+    .modal-footer{padding:14px 24px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;background:var(--soft)}
+    .btn-cancel{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:8px;padding:8px 16px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+    .btn-cancel:hover{background:var(--line)}
+    .btn-save{border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:8px;padding:8px 20px;font:inherit;font-size:13px;font-weight:650;cursor:pointer}
+    .btn-save:hover{opacity:.88}
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="page-header">
+    <h1>Pipeline da Comunidade Roblox</h1>
+  </div>
+
+  <!-- PIPELINE SCROLL — títulos, blocker, histórico -->
+  <div id="pipeline-scroll" style="flex:1 1 0;overflow-y:auto;overflow-x:hidden;min-height:0">
+
+    <!-- títulos -->
+    <div class="band band-titles" style="position:sticky;top:0;z-index:10">
+      <div class="col" data-status="operacional" data-idx="0">
+        <div class="col-top"><h2>TikTok Ads</h2><label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span></label></div>
+        <div class="col-meta"><span style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700">Responsável:</span>&nbsp;<input type="text" placeholder="Fabio Ribeiro" style="border:none;background:transparent;font:inherit;font-size:12px;color:var(--ink);outline:none;padding:0;width:130px"></div>
+      </div>
+      <div class="col" data-status="operacional" data-idx="1">
+        <div class="col-top"><h2>Landing</h2><label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span></label></div>
+        <div class="col-meta"><span style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700">Responsável:</span>&nbsp;<input type="text" placeholder="Fabio Ribeiro" style="border:none;background:transparent;font:inherit;font-size:12px;color:var(--ink);outline:none;padding:0;width:130px"></div>
+      </div>
+      <div class="col" data-status="operacional" data-idx="2">
+        <div class="col-top"><h2>Discord</h2><label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span></label></div>
+        <div class="col-meta"><span style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700">Responsável:</span>&nbsp;<input type="text" placeholder="Fabio Ribeiro" style="border:none;background:transparent;font:inherit;font-size:12px;color:var(--ink);outline:none;padding:0;width:130px"></div>
+      </div>
+      <div class="col" data-status="operacional" data-idx="3">
+        <div class="col-top"><h2>Programação</h2><label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span></label></div>
+        <div class="col-meta"><span style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700">Responsável:</span>&nbsp;<input type="text" placeholder="Fabio Ribeiro" style="border:none;background:transparent;font:inherit;font-size:12px;color:var(--ink);outline:none;padding:0;width:130px"></div>
+      </div>
+    </div>
+
+    <!-- blocker -->
+    <div class="band band-blocker">
+      <div class="col"><div class="row-label">O que bloqueia se cair</div><p class="block-text">Nenhum novo tráfego entra no pipeline. Os demais elos ficam dependentes de bases já existentes.</p></div>
+      <div class="col"><div class="row-label">O que bloqueia se cair</div><p class="block-text">O tráfego chega, mas a pessoa não encontra o caminho claro para entrar na comunidade.</p></div>
+      <div class="col"><div class="row-label">O que bloqueia se cair</div><p class="block-text">Pessoas entram no Discord, mas não entendem regras, próximos passos ou onde participar.</p></div>
+      <div class="col"><div class="row-label">O que bloqueia se cair</div><p class="block-text">A comunidade perde motivo para retornar, conversar e participar depois da entrada inicial.</p></div>
+    </div>
+
+    <!-- label histórico — sticky abaixo dos títulos -->
+    <div class="band band-hist-label" id="history-label-band" style="position:sticky;top:0;z-index:9">
+      <div class="col"><div class="hist-head"><span class="row-label" style="margin-bottom:0">Histórico</span><button class="btn-plus new-update" data-col="0">+</button></div></div>
+      <div class="col"><div class="hist-head"><span class="row-label" style="margin-bottom:0">Histórico</span><button class="btn-plus new-update" data-col="1">+</button></div></div>
+      <div class="col"><div class="hist-head"><span class="row-label" style="margin-bottom:0">Histórico</span><button class="btn-plus new-update" data-col="2">+</button></div></div>
+      <div class="col"><div class="hist-head"><span class="row-label" style="margin-bottom:0">Histórico</span><button class="btn-plus new-update" data-col="3">+</button></div></div>
+    </div>
+
+    <!-- histórico -->
+    <div id="history-scroll">
+      <div class="band band-history" data-ts="06/06">
+        <div class="col"><div class="log-time">06/06 · 09:42</div><p class="log-text">Criativo #14 publicado. <a href="#"></a></p></div>
+        <div class="col"><div class="log-time">06/06 · 09:30</div><p class="log-text">CTA para Discord validado. <a href="#"></a></p></div>
+        <div class="col"><div class="log-time">06/06 · 10:12</div><p class="log-text">Mensagem de boas-vindas revisada. <a href="#"></a></p></div>
+        <div class="col"><div class="log-time">06/06 · 18:00</div><p class="log-text">Agenda da semana publicada. <a href="#"></a></p></div>
+      </div>
+      <div class="band band-history" data-ts="05/06">
+        <div class="col"><div class="log-time">05/06 · 17:11</div><p class="log-text">Sem atualização hoje.</p></div>
+        <div class="col"><div class="log-time">05/06 · 10:20</div><p class="log-text">Página atualizada com chamada da semana.</p></div>
+        <div class="col"><div class="log-time">05/06 · 17:40</div><p class="log-text">Sem atualização hoje.</p></div>
+        <div class="col"><div class="log-time">05/06 · 14:10</div><p class="log-text">Desafio de sábado definido.</p></div>
+      </div>
+      <div class="band band-history" data-ts="04/06">
+        <div class="col"><div class="log-time">04/06 · 08:55</div><p class="log-text">Novo criativo de teste publicado.</p></div>
+        <div class="col"><div class="log-time">04/06 · 09:10</div><p class="log-text">Banner principal atualizado.</p></div>
+        <div class="col"><div class="log-time">04/06 · 11:00</div><p class="log-text">Canal de anúncios revisado.</p></div>
+        <div class="col"><div class="log-time">04/06 · 16:30</div><p class="log-text">Post de engajamento publicado.</p></div>
+      </div>
+      <div class="band band-history" data-ts="03/06">
+        <div class="col"><div class="log-time">03/06 · 10:00</div><p class="log-text">Sem atualização hoje.</p></div>
+        <div class="col"><div class="log-time">03/06 · 10:00</div><p class="log-text">Sem atualização hoje.</p></div>
+        <div class="col"><div class="log-time">03/06 · 14:22</div><p class="log-text">Regras do servidor revisadas.</p></div>
+        <div class="col"><div class="log-time">03/06 · 17:00</div><p class="log-text">Enquete da semana criada.</p></div>
+      </div>
+      <div class="band band-history" data-ts="02/06">
+        <div class="col"><div class="log-time">02/06 · 09:15</div><p class="log-text">Criativo #13 publicado. <a href="#"></a></p></div>
+        <div class="col"><div class="log-time">02/06 · 09:40</div><p class="log-text">CTA testado em mobile.</p></div>
+        <div class="col"><div class="log-time">02/06 · 11:30</div><p class="log-text">Mensagem de boas-vindas v2 ativa.</p></div>
+        <div class="col"><div class="log-time">02/06 · 15:00</div><p class="log-text">Desafio semanal lançado. <a href="#"></a></p></div>
+      </div>
+      <div class="band band-history" data-ts="01/06">
+        <div class="col"><div class="log-time">01/06 · 08:30</div><p class="log-text">Sem atualização hoje.</p></div>
+        <div class="col"><div class="log-time">01/06 · 10:05</div><p class="log-text">Copy da landing revisada.</p></div>
+        <div class="col"><div class="log-time">01/06 · 13:00</div><p class="log-text">Sem atualização hoje.</p></div>
+        <div class="col"><div class="log-time">01/06 · 18:00</div><p class="log-text">Programação de junho publicada. <a href="#"></a></p></div>
+      </div>
+      <div class="band band-history" data-ts="31/05">
+        <div class="col"><div class="log-time">31/05 · 09:00</div><p class="log-text">Criativo #12 publicado.</p></div>
+        <div class="col"><div class="log-time">31/05 · 09:30</div><p class="log-text">Sem atualização hoje.</p></div>
+        <div class="col"><div class="log-time">31/05 · 10:45</div><p class="log-text">Fluxo de entrada testado.</p></div>
+        <div class="col"><div class="log-time">31/05 · 16:00</div><p class="log-text">Ativação de fim de mês publicada.</p></div>
+      </div>
+      <div class="band band-history" data-ts="30/05">
+        <div class="col"><div class="log-time">30/05 · 11:00</div><p class="log-text">Sem atualização hoje.</p></div>
+        <div class="col"><div class="log-time">30/05 · 11:20</div><p class="log-text">Sem atualização hoje.</p></div>
+        <div class="col"><div class="log-time">30/05 · 14:00</div><p class="log-text">Canal de suporte ativado.</p></div>
+        <div class="col"><div class="log-time">30/05 · 17:30</div><p class="log-text">Sem atualização hoje.</p></div>
+      </div>
+      <div class="band band-history" data-ts="29/05">
+        <div class="col"><div class="log-time">29/05 · 08:45</div><p class="log-text">Criativo #11 publicado. <a href="#"></a></p></div>
+        <div class="col"><div class="log-time">29/05 · 09:00</div><p class="log-text">Página de entrada revisada.</p></div>
+        <div class="col"><div class="log-time">29/05 · 10:30</div><p class="log-text">Novo canal de dúvidas criado.</p></div>
+        <div class="col"><div class="log-time">29/05 · 15:00</div><p class="log-text">Desafio da semana anunciado.</p></div>
+      </div>
+      <div class="band band-history" data-ts="28/05">
+        <div class="col"><div class="log-time">28/05 · 10:00</div><p class="log-text">Sem atualização hoje.</p></div>
+        <div class="col"><div class="log-time">28/05 · 10:00</div><p class="log-text">Sem atualização hoje.</p></div>
+        <div class="col"><div class="log-time">28/05 · 13:15</div><p class="log-text">Sem atualização hoje.</p></div>
+        <div class="col"><div class="log-time">28/05 · 18:00</div><p class="log-text">Revisão de conteúdo da semana.</p></div>
+      </div>
+    </div><!-- /history-scroll -->
+
+  </div><!-- /pipeline-scroll -->
+
+  <!-- BARRA NOVO ATIVO — fixa no layout -->
+  <div class="bar-new-asset">
+    <button id="openModal">+ Novo ativo</button>
+  </div>
+
+  <!-- ATIVOS SCROLL -->
+  <div id="assets-scroll" style="flex:0 0 25vh;overflow-y:auto;overflow-x:hidden;background:var(--soft)">
+    <div id="assetBody">
+      <div class="a-entry">
+        <div class="a-name"><span class="asset-note">06/06</span><a class="asset-link" href="#"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><span class="asset-title">Como criar seu primeiro jogo</span></div>
+        <div class="a-metrics">
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="12.400"/><div class="metric-info"><span class="metric-label">views</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="342"/><div class="metric-info"><span class="metric-label">visitas</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="41"/><div class="metric-info"><span class="metric-label">entradas</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="18"/><div class="metric-info"><span class="metric-label">participantes</span></div></div></div>
+        </div>
+      </div>
+      <div class="a-entry">
+        <div class="a-name"><span class="asset-note">05/06</span><a class="asset-link" href="#"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><span class="asset-title">Creator Challenge</span></div>
+        <div class="a-metrics">
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="8.200"/><div class="metric-info"><span class="metric-label">views</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="198"/><div class="metric-info"><span class="metric-label">visitas</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="22"/><div class="metric-info"><span class="metric-label">entradas</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="9"/><div class="metric-info"><span class="metric-label">participantes</span></div></div></div>
+        </div>
+      </div>
+      <div class="a-entry">
+        <div class="a-name"><span class="asset-note">03/06</span><a class="asset-link" href="#"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><span class="asset-title">Aprenda Lua em 10 minutos</span></div>
+        <div class="a-metrics">
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="9.800"/><div class="metric-info"><span class="metric-label">views</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="210"/><div class="metric-info"><span class="metric-label">visitas</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="28"/><div class="metric-info"><span class="metric-label">entradas</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="11"/><div class="metric-info"><span class="metric-label">participantes</span></div></div></div>
+        </div>
+      </div>
+      <div class="a-entry">
+        <div class="a-name"><span class="asset-note">01/06</span><a class="asset-link" href="#"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><span class="asset-title">Tour pelo mapa da semana</span></div>
+        <div class="a-metrics">
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="6.400"/><div class="metric-info"><span class="metric-label">views</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="144"/><div class="metric-info"><span class="metric-label">visitas</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="17"/><div class="metric-info"><span class="metric-label">entradas</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="6"/><div class="metric-info"><span class="metric-label">participantes</span></div></div></div>
+        </div>
+      </div>
+      <div class="a-entry">
+        <div class="a-name"><span class="asset-note">29/05</span><a class="asset-link" href="#"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a><span class="asset-title">Desafio Creator #3</span></div>
+        <div class="a-metrics">
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="14.200"/><div class="metric-info"><span class="metric-label">views</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="390"/><div class="metric-info"><span class="metric-label">visitas</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="52"/><div class="metric-info"><span class="metric-label">entradas</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="24"/><div class="metric-info"><span class="metric-label">participantes</span></div></div></div>
+        </div>
+      </div>
+    </div><!-- /assetBody -->
+  </div><!-- /assets-scroll -->
+
+  <!-- FOOTER -->
+  <footer class="page-footer">
+    <span class="footer-date" id="footerDate"></span>
+    <a class="footer-link" href="https://discord.gg/" target="_blank">Comunidade Roblox no Discord</a>
+    <span class="footer-name">Pipeline Mastertech</span>
+  </footer>
+
+  <!-- MODAL ATUALIZAÇÃO -->
+  <div class="modal-backdrop" id="updateBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-label">Nova atualização</div>
+        <h3 id="updateModalTitle"></h3>
+      </div>
+      <div class="modal-body">
+        <label class="modal-skip"><input type="checkbox" id="skipCheck"> Sem atualização hoje</label>
+        <div id="updateFields">
+          <textarea id="updateText" placeholder="O que aconteceu nesta frente?"></textarea>
+          <input type="text" id="updateLink" placeholder="Link da evidência (opcional)"/>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" id="closeUpdate">Cancelar</button>
+        <button class="btn-save" id="saveUpdate">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL NOVO ATIVO -->
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-label">Ativos em circulação</div>
+        <h3>Novo ativo</h3>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field">
+          <div class="modal-field-label">Nome do criativo</div>
+          <input type="text" id="assetTitle" placeholder="Ex: Como criar seu primeiro jogo"/>
+        </div>
+        <div class="modal-field">
+          <div class="modal-field-label">Link do vídeo</div>
+          <input type="url" id="assetLink" placeholder="https://"/>
+        </div>
+        <div class="modal-field">
+          <div class="modal-field-label">Data de publicação</div>
+          <input type="date" id="assetNote"/>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" id="closeModal">Cancelar</button>
+        <button class="btn-save" id="addAsset">Adicionar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fmt = new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const fmtFull = new Intl.DateTimeFormat('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+    document.getElementById('footerDate').textContent = fmtFull.format(new Date());
+
+    // sticky offsets
+    function updateStickyOffsets(){
+      const titlesH = document.querySelector('.band-titles').offsetHeight;
+      document.getElementById('history-label-band').style.top = titlesH + 'px';
+    }
+    updateStickyOffsets();
+    window.addEventListener('resize', updateStickyOffsets);
+
+    const colNames = ['TikTok Ads','Landing','Discord','Programação'];
+
+    // toggles
+    document.querySelectorAll('.band-titles .col').forEach(col => {
+      const toggle = col.querySelector('.toggle input');
+      if (!toggle) return;
+      const idx = parseInt(col.dataset.idx);
+      function syncToggle(){
+        const on = toggle.checked;
+        col.dataset.status = on ? 'operacional' : 'interrompido';
+        document.querySelectorAll('.band').forEach(band => {
+          const cols = band.querySelectorAll(':scope > .col');
+          if (cols[idx]) cols[idx].classList.toggle('col-off', !on);
+        });
+        document.querySelectorAll('#history-scroll .band').forEach(band => {
+          const cols = band.querySelectorAll(':scope > .col');
+          if (cols[idx]) cols[idx].classList.toggle('col-off', !on);
+        });
+      }
+      toggle.addEventListener('change', syncToggle);
+      syncToggle();
+    });
+
+    // modal atualização
+    let activeCol = 0;
+    document.querySelectorAll('.new-update').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeCol = parseInt(btn.dataset.col);
+        document.getElementById('updateModalTitle').textContent = colNames[activeCol];
+        document.getElementById('skipCheck').checked = false;
+        const uf = document.getElementById('updateFields');
+        uf.style.opacity = '1'; uf.style.pointerEvents = 'auto';
+        document.getElementById('updateText').value = '';
+        document.getElementById('updateLink').value = '';
+        document.getElementById('updateBackdrop').classList.add('open');
+        document.getElementById('updateText').focus();
+      });
+    });
+
+    document.getElementById('skipCheck').addEventListener('change', e => {
+      const uf = document.getElementById('updateFields');
+      uf.style.opacity = e.target.checked ? '.35' : '1';
+      uf.style.pointerEvents = e.target.checked ? 'none' : 'auto';
+    });
+    document.getElementById('closeUpdate').addEventListener('click', () => document.getElementById('updateBackdrop').classList.remove('open'));
+    document.getElementById('updateBackdrop').addEventListener('click', e => { if(e.target===e.currentTarget) e.currentTarget.classList.remove('open') });
+    document.getElementById('saveUpdate').addEventListener('click', () => {
+      const skip = document.getElementById('skipCheck').checked;
+      const text = skip ? 'Sem atualização hoje.' : document.getElementById('updateText').value.trim();
+      const link = skip ? '' : document.getElementById('updateLink').value.trim();
+      if (!skip && !text) { document.getElementById('updateText').focus(); return; }
+      addLog(activeCol, text, link);
+      document.getElementById('updateBackdrop').classList.remove('open');
+    });
+
+    function addLog(idx, text, link){
+      const now = fmt.format(new Date()).replace(',', ' ·');
+      let band = document.querySelector(`#history-scroll .band-history[data-ts="${now}"]`);
+      if (!band) {
+        band = document.createElement('div');
+        band.className = 'band band-history';
+        band.dataset.ts = now;
+        for (let i = 0; i < 4; i++) {
+          const col = document.createElement('div');
+          col.className = 'col';
+          col.innerHTML = `<div class="log-time" style="visibility:hidden">${now}</div><p class="log-text" style="color:var(--muted)">—</p>`;
+          band.appendChild(col);
+        }
+        document.getElementById('history-scroll').insertAdjacentElement('afterbegin', band);
+      }
+      const col = band.children[idx];
+      col.innerHTML = `<div class="log-time">${now}</div><p class="log-text">${esc(text)}${link ? ` <a href="${escA(link)}" target="_blank"></a>` : ''}</p>`;
+    }
+
+    // modal novo ativo
+    document.getElementById('openModal').addEventListener('click', () => {
+      document.getElementById('modalBackdrop').classList.add('open');
+      document.getElementById('assetTitle').focus();
+    });
+    document.getElementById('closeModal').addEventListener('click', () => document.getElementById('modalBackdrop').classList.remove('open'));
+    document.getElementById('modalBackdrop').addEventListener('click', e => { if(e.target===e.currentTarget) e.currentTarget.classList.remove('open') });
+    document.getElementById('addAsset').addEventListener('click', () => {
+      const title = v('assetTitle'); if (!title) return;
+      const link = v('assetLink');
+      const rawDate = document.getElementById('assetNote').value;
+      const note = rawDate ? new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit'}).format(new Date(rawDate+'T12:00:00')) : '';
+      const entry = document.createElement('div'); entry.className = 'a-entry';
+      entry.innerHTML = `<div class="a-name"><span class="asset-note">${esc(note)}</span>${link?`<a class="asset-link" href="${escA(link)}" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`:''}<span class="asset-title">${esc(title)}</span></div>
+        <div class="a-metrics">
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="0"/><div class="metric-info"><span class="metric-label">views</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="0"/><div class="metric-info"><span class="metric-label">visitas</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="0"/><div class="metric-info"><span class="metric-label">entradas</span></div></div></div>
+          <div class="a-cell"><div class="a-cell-left"><input class="metric-input" value="0"/><div class="metric-info"><span class="metric-label">participantes</span></div></div></div>
+        </div>`;
+      document.getElementById('assetBody').prepend(entry);
+      setupConversions(entry);
+      document.getElementById('modalBackdrop').classList.remove('open');
+      ['assetTitle','assetLink'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('assetNote').value = '';
+    });
+
+    // conversões
+    function setupConversions(entry){
+      const cells = entry.querySelectorAll('.a-cell');
+      cells.forEach((cell, i) => {
+        if (i === 0) return;
+        const info = cell.querySelector('.metric-info');
+        const pct = document.createElement('span');
+        pct.className = 'metric-pct'; pct.textContent = '—';
+        if (info) info.appendChild(pct);
+      });
+      calcConversions(entry);
+      entry.querySelectorAll('.metric-input').forEach(input => input.addEventListener('input', () => calcConversions(entry)));
+    }
+
+    function calcConversions(entry){
+      const inputs = entry.querySelectorAll('.metric-input');
+      const pcts = entry.querySelectorAll('.metric-pct');
+      pcts.forEach((pct, i) => {
+        const prev = parseFloat(inputs[i].value.replace(/\./g,'').replace(',','.')) || 0;
+        const curr = parseFloat(inputs[i+1].value.replace(/\./g,'').replace(',','.')) || 0;
+        pct.textContent = prev > 0 ? (curr/prev*100).toFixed(1)+'%' : '—';
+      });
+    }
+
+    document.querySelectorAll('.a-entry').forEach(setupConversions);
+
+    function v(id){ return document.getElementById(id).value.trim() }
+    function esc(s){ return s.replace(/[&<>"]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])) }
+    function escA(s){ return s.replace(/"/g,'&quot;') }
+  </script>
+</body>
+</html>

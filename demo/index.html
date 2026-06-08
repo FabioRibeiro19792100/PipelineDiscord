@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Pipeline da Comunidade Roblox — Demo</title>
+  <link rel="stylesheet" href="../styles.css"/>
+</head>
+<body>
+  <div class="page-header">
+    <div>
+      <h1>Pipeline da Comunidade Roblox no Discord</h1>
+    </div>
+    <span class="sync-badge" id="syncBadge">Carregando...</span>
+  </div>
+
+  <div id="pipeline-scroll" class="pipeline-scroll">
+    <div class="band band-titles" id="stageBand"></div>
+    <div class="band band-blocker" id="blockerBand"></div>
+    <div class="band band-hist-label" id="history-label-band">
+      <div class="col"><div class="hist-head"><span class="row-label" style="margin-bottom:0">Histórico</span></div></div>
+      <div class="col"><div class="hist-head"><span class="row-label" style="margin-bottom:0">Histórico</span></div></div>
+      <div class="col"><div class="hist-head"><span class="row-label" style="margin-bottom:0">Histórico</span></div></div>
+      <div class="col"><div class="hist-head"><span class="row-label" style="margin-bottom:0">Histórico</span></div></div>
+    </div>
+    <div id="history-scroll"></div>
+  </div>
+
+  <div class="bar-new-asset" id="assetActionBar">
+    <button id="openAssetModal">+ Incluir criativo</button>
+  </div>
+
+  <div id="assets-scroll" class="assets-scroll">
+    <div id="assetBody"></div>
+  </div>
+
+  <footer class="page-footer">
+    <span class="footer-date" id="footerDate"></span>
+    <a class="footer-link" href="https://discord.gg/" target="_blank" rel="noreferrer">Comunidade Roblox no Discord</a>
+    <span class="footer-name">Pipeline Mastertech</span>
+  </footer>
+
+  <div class="modal-backdrop" id="updateBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-label" id="updateModalMode">Nova atualização</div>
+        <h3 id="updateModalTitle"></h3>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field">
+          <div class="modal-field-label">Data de referência</div>
+          <input type="date" id="updateDate" readonly/>
+        </div>
+        <label class="modal-skip"><input type="checkbox" id="skipCheck"> Sem atualização hoje</label>
+        <div id="updateFields">
+          <textarea id="updateText" placeholder="O que aconteceu nesta frente?"></textarea>
+          <input type="text" id="updateLink" placeholder="Link da evidência (opcional)"/>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" id="closeUpdate">Cancelar</button>
+        <button class="btn-save" id="saveUpdate">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="assetBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-label" id="assetModalMode">Ativos em circulação</div>
+        <h3 id="assetModalTitle">Incluir criativo</h3>
+      </div>
+      <div class="modal-body">
+        <div class="modal-field">
+          <div class="modal-field-label">Nome do criativo</div>
+          <input type="text" id="assetTitle" placeholder="Ex: Como criar seu primeiro jogo" required/>
+        </div>
+        <div class="modal-field">
+          <div class="modal-field-label">Link do vídeo</div>
+          <input type="url" id="assetLink" placeholder="https://" required/>
+        </div>
+        <div class="modal-field">
+          <div class="modal-field-label">Data de publicação</div>
+          <input type="date" id="assetNote" required/>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" id="closeAssetModal">Cancelar</button>
+        <button class="btn-save" id="saveAsset">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.PIPELINE_DEMO = true;
+  </script>
+  <script type="module" src="../app.js"></script>
+</body>
+</html>
