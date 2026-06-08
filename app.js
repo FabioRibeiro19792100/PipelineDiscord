@@ -4,14 +4,15 @@ const SUPABASE_URL = window.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || '';
 const DEMO_MODE = Boolean(window.PIPELINE_DEMO);
 const HISTORY_DAYS = 1;
-const LOCAL_STATE_VERSION = 5;
+const LOCAL_STATE_VERSION = 7;
+const GO_LIVE_DATE = '2026-06-08';
 const STAGE_META = [
   {
     slug: 'tiktok-ads',
     name: 'TikTok Ads',
     owner: 'Nicolas',
     blockerText: 'Nenhum novo tráfego entra no pipeline. Os demais elos ficam dependentes de bases já existentes.',
-    isActive: true,
+    isActive: false,
     position: 0
   },
   {
@@ -19,7 +20,7 @@ const STAGE_META = [
     name: 'Landing',
     owner: 'Jeff',
     blockerText: 'O tráfego chega, mas a pessoa não encontra o caminho claro para entrar na comunidade.',
-    isActive: true,
+    isActive: false,
     position: 1
   },
   {
@@ -27,16 +28,24 @@ const STAGE_META = [
     name: 'Discord',
     owner: 'Nicolas / Murilo',
     blockerText: 'Pessoas entram no Discord, mas não entendem regras, próximos passos ou onde participar.',
-    isActive: true,
+    isActive: false,
     position: 2
+  },
+  {
+    slug: 'plugin',
+    name: 'Plugin',
+    owner: 'Jeff',
+    blockerText: 'A pessoa entra no Discord, mas não ativa o plugin de inspeção Roblox. Sem isso, perdemos a métrica inicial de creators.',
+    isActive: false,
+    position: 3
   },
   {
     slug: 'programacao',
     name: 'Programação',
     owner: 'Nicolas',
     blockerText: 'A comunidade perde motivo para retornar, conversar e participar depois da entrada inicial.',
-    isActive: true,
-    position: 3
+    isActive: false,
+    position: 4
   }
 ];
 
@@ -49,7 +58,9 @@ const seedStatusEvents = [];
 const fmtFull = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 const fmtDay = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 const fmtTime = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
-const todayKey = toDateKey(new Date());
+const realTodayKey = toDateKey(new Date());
+const todayKey = realTodayKey < GO_LIVE_DATE ? GO_LIVE_DATE : realTodayKey;
+const todayDate = new Date(`${todayKey}T12:00:00`);
 const storageKey = DEMO_MODE ? 'pipeline-roblox-demo-state' : 'pipeline-roblox-state';
 const demoData = createDemoData(todayKey);
 
@@ -94,7 +105,7 @@ const els = {
 boot();
 
 async function boot() {
-  els.footerDate.textContent = fmtFull.format(new Date());
+  els.footerDate.textContent = fmtFull.format(todayDate);
   bindEvents();
   await loadData();
   render();
@@ -187,11 +198,10 @@ function hydrateFromLocal() {
 }
 
 function hydrateDemoState() {
-  const local = loadLocalState();
-  state.stages = (local?.stages || structuredClone(demoData.stages)).map(normalizeStage).sort((a, b) => a.position - b.position);
-  state.history = ((Array.isArray(local?.history) && local.history.length) ? local.history : structuredClone(demoData.history)).map(normalizeHistory);
-  state.assets = ((Array.isArray(local?.assets) && local.assets.length) ? local.assets : structuredClone(demoData.assets)).map(normalizeAsset);
-  state.statusEvents = ((Array.isArray(local?.statusEvents) && local.statusEvents.length) ? local.statusEvents : structuredClone(demoData.statusEvents)).map(normalizeStatusEvent);
+  state.stages = structuredClone(demoData.stages).map(normalizeStage).sort((a, b) => a.position - b.position);
+  state.history = structuredClone(demoData.history).map(normalizeHistory);
+  state.assets = structuredClone(demoData.assets).map(normalizeAsset);
+  state.statusEvents = structuredClone(demoData.statusEvents).map(normalizeStatusEvent);
   state.storageMode = 'local';
 }
 
@@ -507,7 +517,8 @@ async function saveAssetFromModal() {
     views: existing?.views ?? null,
     visits: existing?.visits ?? null,
     joins: existing?.joins ?? null,
-    participants: existing?.participants ?? null,
+    plugin_accesses: existing?.plugin_accesses ?? null,
+    creators: existing?.creators ?? null,
     created_at: existing?.created_at || new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
@@ -537,7 +548,8 @@ function renderAsset(asset) {
         ${metricCell(asset.id, 'views', asset.views, 'views')}
         ${metricCell(asset.id, 'visits', asset.visits, 'visitas')}
         ${metricCell(asset.id, 'joins', asset.joins, 'entradas')}
-        ${metricCell(asset.id, 'participants', asset.participants, 'não se aplica', { readonly: true, untracked: true })}
+        ${metricCell(asset.id, 'plugin_accesses', asset.plugin_accesses, 'plugin')}
+        ${metricCell(asset.id, 'creators', asset.creators, 'creators')}
       </div>
     </div>
   `;
@@ -683,13 +695,20 @@ function applyBusinessDefaults() {
     'tiktok-ads': 'Nicolas',
     landing: 'Jeff',
     discord: 'Nicolas / Murilo',
+    plugin: 'Jeff',
     programacao: 'Nicolas'
   };
 
-  state.stages = state.stages.map((stage) => ({
-    ...stage,
-    owner: ownerMap[stage.slug] ?? stage.owner ?? ''
-  }));
+  const stageMap = new Map(state.stages.map((stage) => [stage.slug, stage]));
+  state.stages = STAGE_META.map((baseStage) => {
+    const current = stageMap.get(baseStage.slug) || {};
+    return normalizeStage({
+      ...baseStage,
+      ...current,
+      owner: ownerMap[baseStage.slug] ?? current.owner ?? baseStage.owner ?? '',
+      position: baseStage.position
+    });
+  }).sort((a, b) => a.position - b.position);
 
   state.history = state.history.filter((entry) => entry.entry_date !== todayKey);
   state.assets = state.assets.filter((asset) => asset.published_on !== todayKey);
@@ -699,7 +718,8 @@ function applyBusinessDefaults() {
     views: asset.views ?? null,
     visits: asset.visits ?? null,
     joins: asset.joins ?? null,
-    participants: asset.participants ?? null
+    plugin_accesses: asset.plugin_accesses ?? null,
+    creators: asset.creators ?? asset.participants ?? null
   }));
 }
 
@@ -758,6 +778,7 @@ function updateSyncBadge(label, mode) {
 }
 
 function loadLocalState() {
+  if (DEMO_MODE) return null;
   const raw = localStorage.getItem(storageKey);
   if (!raw) return null;
   try {
@@ -768,6 +789,7 @@ function loadLocalState() {
 }
 
 function saveLocalState(payload) {
+  if (DEMO_MODE) return;
   localStorage.setItem(storageKey, JSON.stringify({
     ...payload,
     version: LOCAL_STATE_VERSION
@@ -844,7 +866,7 @@ function historyEntry(stageSlug, entryDate, description, evidenceUrl, isSkipped,
   };
 }
 
-function assetEntry(title, externalUrl, publishedOn, views, visits, joins, participants) {
+function assetEntry(title, externalUrl, publishedOn, views, visits, joins, pluginAccesses, creators) {
   const timestamp = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
@@ -854,7 +876,8 @@ function assetEntry(title, externalUrl, publishedOn, views, visits, joins, parti
     views,
     visits,
     joins,
-    participants: null,
+    plugin_accesses: pluginAccesses,
+    creators,
     created_at: timestamp,
     updated_at: timestamp
   };
@@ -890,10 +913,11 @@ function normalizeAsset(asset) {
     title: asset.title,
     external_url: asset.external_url || '',
     published_on: asset.published_on || '',
-    views: Number(asset.views || 0),
-    visits: Number(asset.visits || 0),
-    joins: Number(asset.joins || 0),
-    participants: asset.participants ?? null,
+    views: asset.views ?? null,
+    visits: asset.visits ?? null,
+    joins: asset.joins ?? null,
+    plugin_accesses: asset.plugin_accesses ?? null,
+    creators: asset.creators ?? asset.participants ?? null,
     created_at: asset.created_at || null,
     updated_at: asset.updated_at || null
   };
@@ -941,7 +965,9 @@ function toDbAsset(asset) {
     views: asset.views ?? null,
     visits: asset.visits ?? null,
     joins: asset.joins ?? null,
-    participants: asset.participants ?? null,
+    plugin_accesses: asset.plugin_accesses ?? null,
+    creators: asset.creators ?? null,
+    participants: null,
     created_at: asset.created_at,
     updated_at: asset.updated_at
   };
@@ -977,34 +1003,40 @@ function createDemoData(dateKey) {
       historyEntry('tiktok-ads', demoDays[0], 'Dois criativos novos publicados e campanha principal mantida ativa.', 'https://example.com/ads', false, `${demoDays[0]}T09:20:00`),
       historyEntry('landing', demoDays[0], 'Headline revisada e CTA de entrada destacado para mobile.', 'https://example.com/landing', false, `${demoDays[0]}T11:10:00`),
       historyEntry('discord', demoDays[0], 'Fluxo de recepcao ajustado com mensagem inicial e canal de boas-vindas.', 'https://example.com/discord', false, `${demoDays[0]}T11:40:00`),
+      historyEntry('plugin', demoDays[0], 'Plugin operante e onboarding revisado para aumentar a criacao de creators.', 'https://example.com/plugin', false, `${demoDays[0]}T14:20:00`),
       historyEntry('programacao', demoDays[0], 'Agenda da semana publicada e evento principal confirmado.', '', false, `${demoDays[0]}T17:45:00`),
       historyEntry('tiktok-ads', demoDays[1], 'Teste A/B de criativos pausado e melhor variacao mantida.', 'https://example.com/ads-2', false, `${demoDays[1]}T10:05:00`),
       historyEntry('landing', demoDays[1], 'Bloco social proof atualizado com prints da comunidade.', '', false, `${demoDays[1]}T14:20:00`),
       historyEntry('discord', demoDays[1], 'Canais de entrada reorganizados para reduzir ruido inicial.', '', false, `${demoDays[1]}T16:10:00`),
+      historyEntry('plugin', demoDays[1], 'Acesso ao plugin estabilizado e evento de instalacao guiada realizado.', '', false, `${demoDays[1]}T17:00:00`),
       historyEntry('programacao', demoDays[1], 'Calendario semanal revisado com foco em evento de sabado.', '', false, `${demoDays[1]}T18:00:00`),
       historyEntry('tiktok-ads', demoDays[2], 'Nova copy de anuncio publicada com foco em aula gratuita.', '', false, `${demoDays[2]}T09:15:00`),
       historyEntry('landing', demoDays[2], 'Ajuste fino no CTA principal para entrada no Discord.', '', false, `${demoDays[2]}T12:30:00`),
       historyEntry('discord', demoDays[2], 'Mensagem automatica de boas-vindas revisada.', '', false, `${demoDays[2]}T13:00:00`),
+      historyEntry('plugin', demoDays[2], 'Tutorial de instalacao encurtado para reduzir abandono.', '', false, `${demoDays[2]}T15:00:00`),
       historyEntry('programacao', demoDays[2], 'Tema da semana definido com apoio dos moderadores.', '', false, `${demoDays[2]}T17:20:00`),
       historyEntry('tiktok-ads', demoDays[3], 'Campanha de retargeting ativada para visitantes recentes.', '', false, `${demoDays[3]}T08:55:00`),
       historyEntry('landing', demoDays[3], 'Seção de prova social expandida com novos depoimentos.', '', false, `${demoDays[3]}T10:40:00`),
       historyEntry('discord', demoDays[3], 'Canal de regras simplificado para leitura rapida.', '', false, `${demoDays[3]}T15:10:00`),
+      historyEntry('plugin', demoDays[3], 'Falha pontual no plugin corrigida apos validacao do time.', '', false, `${demoDays[3]}T16:30:00`),
       historyEntry('programacao', demoDays[3], 'Atividade principal da sexta foi confirmada.', '', false, `${demoDays[3]}T19:00:00`),
       historyEntry('tiktok-ads', demoDays[4], 'Criativo de topo retomado apos queda de desempenho dos testes.', '', false, `${demoDays[4]}T11:25:00`),
       historyEntry('landing', demoDays[4], 'Formulario de entrada encurtado para reduzir atrito.', '', false, `${demoDays[4]}T12:50:00`),
       historyEntry('discord', demoDays[4], 'Mensagem fixada com primeiros passos foi atualizada.', '', false, `${demoDays[4]}T14:45:00`),
+      historyEntry('plugin', demoDays[4], 'Checklist de instalacao publicado para novos membros.', '', false, `${demoDays[4]}T16:00:00`),
       historyEntry('programacao', demoDays[4], 'Checklist de moderacao alinhado para a semana.', '', false, `${demoDays[4]}T18:30:00`),
       historyEntry('tiktok-ads', demoDays[5], 'Primeira leva de criativos da semana entrou em circulacao.', '', false, `${demoDays[5]}T09:00:00`),
       historyEntry('landing', demoDays[5], 'Hero principal revisado com promessa mais clara.', '', false, `${demoDays[5]}T10:30:00`),
       historyEntry('discord', demoDays[5], 'Boas-vindas segmentadas por perfil foram testadas.', '', false, `${demoDays[5]}T13:20:00`),
+      historyEntry('plugin', demoDays[5], 'Primeira medicao de creators ativados via plugin foi consolidada.', '', false, `${demoDays[5]}T15:40:00`),
       historyEntry('programacao', demoDays[5], 'Planejamento-base da semana foi publicado.', '', false, `${demoDays[5]}T17:10:00`)
     ],
     assets: [
-      assetEntry('Aula aberta', 'https://example.com/video-demo-1', dateKey, 18400, 562, 74, null),
-      assetEntry('Desafio da semana', 'https://example.com/video-demo-2', dateKey, 12600, 391, 48, null),
-      assetEntry('Mapa da semana', 'https://example.com/video-demo-3', demoDays[1], 9800, 284, 39, null),
-      assetEntry('Primeiros passos', 'https://example.com/video-demo-4', demoDays[2], 15400, 471, 61, null),
-      assetEntry('Evento ao vivo', 'https://example.com/video-demo-5', demoDays[4], 11200, 336, 44, null)
+      assetEntry('Aula aberta', 'https://example.com/video-demo-1', dateKey, 18400, 562, 74, 41, 29),
+      assetEntry('Desafio da semana', 'https://example.com/video-demo-2', dateKey, 12600, 391, 48, 24, 16),
+      assetEntry('Mapa da semana', 'https://example.com/video-demo-3', demoDays[1], 9800, 284, 39, 21, 14),
+      assetEntry('Primeiros passos', 'https://example.com/video-demo-4', demoDays[2], 15400, 471, 61, 33, 25),
+      assetEntry('Evento ao vivo', 'https://example.com/video-demo-5', demoDays[4], 11200, 336, 44, 27, 18)
     ],
     statusEvents: []
   };

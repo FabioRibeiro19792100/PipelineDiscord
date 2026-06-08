@@ -5,7 +5,7 @@ create table if not exists public.pipeline_stages (
   name text not null,
   owner text,
   blocker_text text not null,
-  is_active boolean not null default true,
+  is_active boolean not null default false,
   position integer not null default 0,
   updated_at timestamptz not null default now()
 );
@@ -30,7 +30,8 @@ create table if not exists public.pipeline_assets (
   views integer,
   visits integer,
   joins integer,
-  participants integer,
+  plugin_accesses integer,
+  creators integer,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -106,10 +107,11 @@ for all using (true) with check (true);
 
 insert into public.pipeline_stages (slug, name, owner, blocker_text, is_active, position)
 values
-  ('tiktok-ads', 'TikTok Ads', 'Nicolas', 'Nenhum novo tráfego entra no pipeline. Os demais elos ficam dependentes de bases já existentes.', true, 0),
-  ('landing', 'Landing', 'Jeff', 'O tráfego chega, mas a pessoa não encontra o caminho claro para entrar na comunidade.', true, 1),
-  ('discord', 'Discord', 'Nicolas / Murilo', 'Pessoas entram no Discord, mas não entendem regras, próximos passos ou onde participar.', true, 2),
-  ('programacao', 'Programação', 'Nicolas', 'A comunidade perde motivo para retornar, conversar e participar depois da entrada inicial.', true, 3)
+  ('tiktok-ads', 'TikTok Ads', 'Nicolas', 'Nenhum novo tráfego entra no pipeline. Os demais elos ficam dependentes de bases já existentes.', false, 0),
+  ('landing', 'Landing', 'Jeff', 'O tráfego chega, mas a pessoa não encontra o caminho claro para entrar na comunidade.', false, 1),
+  ('discord', 'Discord', 'Nicolas / Murilo', 'Pessoas entram no Discord, mas não entendem regras, próximos passos ou onde participar.', false, 2),
+  ('plugin', 'Plugin', 'Jeff', 'A pessoa entra no Discord, mas não ativa o plugin de inspeção Roblox. Sem isso, perdemos a métrica inicial de creators.', false, 3),
+  ('programacao', 'Programação', 'Nicolas', 'A comunidade perde motivo para retornar, conversar e participar depois da entrada inicial.', false, 4)
 on conflict (slug) do update
 set
   name = excluded.name,

@@ -5,7 +5,7 @@ create table if not exists public.pipeline_stages (
   name text not null,
   owner text,
   blocker_text text not null,
-  is_active boolean not null default true,
+  is_active boolean not null default false,
   position integer not null default 0,
   updated_at timestamptz not null default now()
 );
@@ -30,7 +30,8 @@ create table if not exists public.pipeline_assets (
   views integer,
   visits integer,
   joins integer,
-  participants integer,
+  plugin_accesses integer,
+  creators integer,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
