@@ -769,8 +769,6 @@ function buildFallbackEntry(stageSlug, dateKey) {
 }
 
 function isHistoryEditable(stageSlug, dateKey) {
-  const entry = state.history.find((item) => item.stage_slug === stageSlug && item.entry_date === dateKey);
-  if (entry) return true;
   return dateKey === todayKey;
 }
 
@@ -1001,7 +999,7 @@ function getDraftStage() {
 }
 
 function isEntryTaggedOff(entry, stage) {
-  return Boolean((entry.status_snapshot ?? stage?.isActive ?? false) === false);
+  return Boolean(resolveEntryStatus(entry, stage) === false);
 }
 
 function resolveEntryStatus(entry, stage) {
@@ -1015,7 +1013,12 @@ function resolveEntryStatus(entry, stage) {
 
   if (stageEvents.length) return Boolean(stageEvents[0].is_active);
   if (entry.entry_date === todayKey) return Boolean(stage?.isActive);
-  return null;
+  return getStageDefaultStatus(entry.stage_slug);
+}
+
+function getStageDefaultStatus(stageSlug) {
+  const baseStage = STAGE_META.find((stage) => stage.slug === stageSlug);
+  return Boolean(baseStage?.isActive ?? false);
 }
 
 function toDbAsset(asset) {
