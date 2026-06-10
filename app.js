@@ -278,7 +278,7 @@ function renderHistory() {
         const current = entry || fallback;
         const editable = isHistoryEditable(stage.slug, dateKey);
         const events = statusIndex.get(`${stage.slug}:${dateKey}`) || [];
-        const resolvedStatus = current.isPlaceholder ? null : resolveEntryStatus(current, stage);
+        const resolvedStatus = resolveEntryStatus(current, stage);
         return `
           <div class="col">
             <div class="history-cell ${editable ? 'is-editable' : 'is-locked'}" data-history-stage="${stage.slug}" data-history-date="${dateKey}" data-history-editable="${editable ? 'true' : 'false'}">
@@ -754,7 +754,8 @@ function buildFallbackEntry(stageSlug, dateKey) {
       description: 'Não houve inclusão de status nesse dia.',
       evidence_url: '',
       is_skipped: false,
-      isPlaceholder: true
+      isPlaceholder: true,
+      status_snapshot: null
     };
   }
 
@@ -764,7 +765,8 @@ function buildFallbackEntry(stageSlug, dateKey) {
     description: '',
     evidence_url: '',
     is_skipped: false,
-    isPlaceholder: true
+    isPlaceholder: true,
+    status_snapshot: null
   };
 }
 
