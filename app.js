@@ -3,7 +3,6 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL = window.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || '';
 const DEMO_MODE = Boolean(window.PIPELINE_DEMO);
-const HISTORY_DAYS = 1;
 const LOCAL_STATE_VERSION = 7;
 const GO_LIVE_DATE = '2026-06-08';
 const STAGE_META = [
@@ -261,7 +260,7 @@ function renderStages() {
 }
 
 function renderHistory() {
-  const days = getHistoryDays(HISTORY_DAYS);
+  const days = getHistoryDays();
   const historyIndex = new Map(state.history.map((entry) => [`${entry.stage_slug}:${entry.entry_date}`, entry]));
   const statusIndex = new Map();
 
@@ -279,6 +278,7 @@ function renderHistory() {
         const current = entry || fallback;
         const editable = isHistoryEditable(stage.slug, dateKey);
         const events = statusIndex.get(`${stage.slug}:${dateKey}`) || [];
+        const resolvedStatus = current.isPlaceholder ? null : resolveEntryStatus(current, stage);
         return `
           <div class="col">
             <div class="history-cell ${editable ? 'is-editable' : 'is-locked'}" data-history-stage="${stage.slug}" data-history-date="${dateKey}" data-history-editable="${editable ? 'true' : 'false'}">
@@ -288,7 +288,7 @@ function renderHistory() {
                 </div>
                 <div class="history-meta-actions">
                   ${editable ? `<button class="history-edit-btn" type="button" aria-label="Editar histórico">${editIcon()}</button>` : ''}
-                  ${current.isPlaceholder ? '' : renderHistoryStatusTag(current, stage)}
+                  ${resolvedStatus === null ? '' : renderHistoryStatusTag(resolvedStatus)}
                 </div>
               </div>
               <p class="log-text ${current.isPlaceholder ? 'placeholder' : ''}">${renderHistoryText(current)}</p>
@@ -736,9 +736,6 @@ function applyBusinessDefaults() {
     });
   }).sort((a, b) => a.position - b.position);
 
-  state.history = state.history.filter((entry) => entry.entry_date !== todayKey);
-  state.assets = state.assets.filter((asset) => asset.published_on !== todayKey);
-  state.statusEvents = state.statusEvents.filter((event) => !event.changed_at.startsWith(todayKey));
   state.assets = state.assets.map((asset) => ({
     ...asset,
     views: asset.views ?? null,
@@ -754,7 +751,7 @@ function buildFallbackEntry(stageSlug, dateKey) {
     return {
       stage_slug: stageSlug,
       entry_date: dateKey,
-      description: 'Não preenchido.',
+      description: 'Não houve inclusão de status nesse dia.',
       evidence_url: '',
       is_skipped: false,
       isPlaceholder: true
@@ -784,8 +781,7 @@ function renderHistoryText(entry) {
   return `${text} <a href="${escapeAttr(entry.evidence_url)}" target="_blank" rel="noreferrer">evidência</a>`;
 }
 
-function renderHistoryStatusTag(entry, stage) {
-  const isOn = entry.status_snapshot ?? stage?.isActive ?? false;
+function renderHistoryStatusTag(isOn) {
   return `
     <span class="history-status-dot ${isOn ? 'is-on' : 'is-off'}" aria-label="${isOn ? 'Ligado' : 'Desligado'}" title="${isOn ? 'Ligado' : 'Desligado'}"></span>
   `;
@@ -843,18 +839,23 @@ function migrateLocalState(payload) {
   };
 }
 
-function getHistoryDays(total) {
-  const limit = DEMO_MODE ? 6 : total;
-  const days = [todayKey];
-  const extraDays = state.history
-    .map((entry) => entry.entry_date)
-    .filter((dateKey, index, arr) => arr.indexOf(dateKey) === index)
-    .filter((dateKey) => DEMO_MODE || dateKey >= todayKey)
-    .sort((a, b) => b.localeCompare(a));
+function getHistoryDays() {
+  const allKnownDates = [
+    todayKey,
+    GO_LIVE_DATE,
+    ...state.history.map((entry) => entry.entry_date),
+    ...state.statusEvents.map((event) => event.changed_at.slice(0, 10))
+  ].filter(Boolean);
 
-  extraDays.forEach((dateKey) => {
-    if (!days.includes(dateKey) && days.length < limit) days.push(dateKey);
-  });
+  const earliestDate = allKnownDates.sort()[0] || todayKey;
+  const days = [];
+  const cursor = new Date(`${todayKey}T12:00:00`);
+  const limit = new Date(`${earliestDate}T12:00:00`);
+
+  while (cursor >= limit) {
+    days.push(toDateKey(cursor));
+    cursor.setDate(cursor.getDate() - 1);
+  }
 
   return days;
 }
@@ -1001,6 +1002,20 @@ function getDraftStage() {
 
 function isEntryTaggedOff(entry, stage) {
   return Boolean((entry.status_snapshot ?? stage?.isActive ?? false) === false);
+}
+
+function resolveEntryStatus(entry, stage) {
+  if (entry.status_snapshot !== null && entry.status_snapshot !== undefined) {
+    return Boolean(entry.status_snapshot);
+  }
+
+  const stageEvents = state.statusEvents
+    .filter((event) => event.stage_slug === entry.stage_slug && event.changed_at.slice(0, 10) <= entry.entry_date)
+    .sort((a, b) => b.changed_at.localeCompare(a.changed_at));
+
+  if (stageEvents.length) return Boolean(stageEvents[0].is_active);
+  if (entry.entry_date === todayKey) return Boolean(stage?.isActive);
+  return null;
 }
 
 function toDbAsset(asset) {
